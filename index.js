@@ -1,36 +1,20 @@
 import "dotenv/config";
 
-import { OpenAI } from "openai";
 import fs from "fs/promises";
+import { calculateCosineSimilarity } from "./utils/calculate-cosine-similarity.js";
+import { openAIService } from "./services/openai.js";
+import { readJsonFile } from "./utils/read-json-file.js";
 
 const config = {
   minimumSimilarity: 0.9,
   answerTemperature: 0.2,
 };
 
-const openAI = new OpenAI();
-
-function cosineSimilarity(vectorA, vectorB) {
-  let dotproduct = 0;
-  let magnitudeA = 0;
-  let magnitudeB = 0;
-
-  for (let index = 0; index < vectorA.length; index++) {
-    dotproduct += vectorA[index] * vectorB[index];
-    magnitudeA += vectorA[index] * vectorA[index];
-    magnitudeB += vectorB[index] * vectorB[index];
-  }
-
-  return dotproduct / (Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB));
-}
-
 async function main() {
-  const savedQuestions = JSON.parse(
-    (await fs.readFile("./questions.json")).toString()
-  );
+  const savedQuestions = await readJsonFile("./questions.json");
 
   const newQuestion = process.argv.at(-1).trim().toLowerCase();
-  const questionEmbeddingResult = await openAI.embeddings.create({
+  const questionEmbeddingResult = await openAIService.embeddings.create({
     model: "text-embedding-3-small",
     input: newQuestion,
   });
@@ -40,7 +24,7 @@ async function main() {
   let mostSimilarQuestion;
 
   for (const question of savedQuestions) {
-    const similarity = cosineSimilarity(
+    const similarity = calculateCosineSimilarity(
       question.embedding,
       newQuestionEmbedding
     );
@@ -63,7 +47,7 @@ async function main() {
     return;
   }
 
-  const newAnswer = await openAI.chat.completions.create({
+  const newAnswer = await openAIService.chat.completions.create({
     messages: [
       {
         role: "user",
